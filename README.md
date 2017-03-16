@@ -3,7 +3,7 @@ PHP implementation of sms.sluzba.cz API.
 
 ## Installation
 
-	composer require axima/php-sms-gate
+	composer require axima/sms-gate
 
 ## Usage
 
