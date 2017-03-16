@@ -1,0 +1,23 @@
+{
+	"name": "axima/sms-gate",
+	"description": "PHP implementation of sms.sluzba.cz API.",
+	"type": "library",
+	"license": "MIT",
+	"authors": [
+		{
+			"name": "greeny",
+			"email": "blatny.tomas@seznam.cz"
+		}
+	],
+	"autoload": {
+		"psr-4": {
+			"Pays\\SmsGate\\": "src/"
+		}
+	},
+	"require": {
+		"guzzlehttp/guzzle": "~5.3.0"
+	},
+	"require-dev": {
+		"nette/tester": "^1.7"
+	}
+}
