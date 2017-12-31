@@ -1,5 +1,5 @@
 {
-	"name": "axima/sms-gate",
+	"name": "matejbukovsky/axima-sms-gate",
 	"description": "PHP implementation of sms.sluzba.cz API.",
 	"type": "library",
 	"license": "MIT",
@@ -7,6 +7,10 @@
 		{
 			"name": "greeny",
 			"email": "blatny.tomas@seznam.cz"
+		},
+		{
+			"name": "Matej Bukovsky",
+			"email": "matejbukovsky@gmail.com"
 		}
 	],
 	"autoload": {
