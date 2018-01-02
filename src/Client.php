@@ -1,12 +1,11 @@
 <?php
 /**
  * @author Tomáš Blatný
+ * @author Matej Bukovsky matejbukovsky@gmail.com
  */
 
 namespace Axima\SmsGate;
 
-
-use DateTime;
 use GuzzleHttp\ClientInterface;
 use SimpleXMLElement;
 
@@ -34,7 +33,6 @@ class Client
 	/** @var string */
 	private $password;
 
-
 	public function __construct(ClientInterface $guzzleClient, $login, $password)
 	{
 		$this->guzzleClient = $guzzleClient;
@@ -42,31 +40,26 @@ class Client
 		$this->password = $password;
 	}
 
-
 	/**
-	 * @param string $text
-	 * @param string $number
-	 * @param bool|NULL $requestConfirmation
-	 * @param DateTime|NULL $sendAt
+	 * @param \Axima\SmsGate\Message $message
 	 * @return array
 	 * @throws ClientException
 	 * @throws SmsGateException
 	 */
-	public function sendSms($text, $number, $requestConfirmation = NULL, DateTime $sendAt = NULL)
+	public function sendSms(Message $message)
 	{
-		$text = trim((string) $text);
-		$number = trim((string) $number);
-
+		$text = $message->getText();
+		$result = [];
 		if ($text === '') {
 			throw new ClientException('Please provide a non-empty text message.');
 		}
-		if (!Validators::validateNumber($number)) {
-			throw new ClientException('Please provide a phone number in a valid format.');
-		}
-		if ($sendAt !== NULL) {
+
+		$sendAt = $message->getSendAt();
+		if ($sendAt) {
 			$sendAt = $sendAt->format('YmdHis');
 		}
 
+		$requestConfirmation = $message->getConfirmation();
 		if ($requestConfirmation === TRUE) {
 			$requestConfirmation = 20;
 		} elseif ($requestConfirmation === FALSE) {
@@ -75,32 +68,28 @@ class Client
 			throw new ClientException('Request confirmation parameter may be only TRUE/FALSE or NULL.');
 		}
 
-		$response = $this->guzzleClient->post(self::$sendMessageUrl, array(
-			'query' => array(
-				'login' => $this->login,
-				'password' => $this->password,
-			),
-			'headers' => array(
-				'Content-type' => 'text/xml'
-			),
-			'body' => $this->getXml($text, $number, $requestConfirmation, $sendAt),
-		));
-		if ($response->getStatusCode() !== 200) {
+		foreach ($message->getPhones() as $phone) {
+			$response = $this->guzzleClient->post(self::$sendMessageUrl, array(
+				'query' => array(
+					'login' => $this->login,
+					'password' => $this->password,
+				),
+				'headers' => array(
+					'Content-type' => 'text/xml'
+				),
+				'body' => $this->getXml($text, $phone, $requestConfirmation, $sendAt),
+			));
+			if ($response->getStatusCode() !== 200) {
+				$xml = simplexml_load_string($response->getBody()->getContents());
+				throw new SmsGateException((string) $xml->message, $response->getStatusCode());
+			}
+
 			$xml = simplexml_load_string($response->getBody()->getContents());
-			throw new SmsGateException((string) $xml->message, $response->getStatusCode());
+			$result[] = $this->xml2Array($xml);
 		}
 
-		$xml = simplexml_load_string($response->getBody()->getContents());
-		$message = $xml->message;
-
-		return array(
-			'id' => (string) $message->id,
-			'parts' => (string) $message->parts,
-			'price' => (string) $message->price,
-			'credit' => (string) $xml->credit,
-		);
+		return $result;
 	}
-
 
 	/**
 	 * @return string[]
@@ -135,7 +124,6 @@ class Client
 		return $result;
 	}
 
-
 	/**
 	 * @param string $id
 	 * @throws SmsGateException
@@ -153,11 +141,18 @@ class Client
 				'Content-type' => 'text/xml'
 			),
 		));
+
+		$stringResponse = (string) $response->getBody();
+
+		if (!trim($stringResponse)) {
+			return TRUE;
+		} else {
+			return FALSE;
+		}
 		if ($response->getStatusCode() !== 200) {
 			throw new SmsGateException('Error while sending request.', $response->getStatusCode());
 		}
 	}
-
 
 	/**
 	 * @return array
@@ -180,16 +175,8 @@ class Client
 		}
 
 		$xml = simplexml_load_string($response->getBody()->getContents());
-
-		$result = array(
-			'credit' => (string) $xml->credit,
-			'priceCz' => (string) $xml->price_cz_sms,
-			'priceSk' => (string) $xml->price_sk_sms,
-			'priceOther' => (string) $xml->price_other_sms,
-		);
-		return $result;
+		return $this->xml2Array($xml);
 	}
-
 
 	/**
 	 * @param string $text
@@ -215,6 +202,16 @@ class Client
 			throw new ClientException('Unable to create XML document.');
 		}
 		return $result;
+	}
+
+	private function xml2Array(\SimpleXMLElement $xml)
+	{
+		$out = [];
+		foreach ((array) $xml as $index => $node) {
+			$out[$index] = is_object($node) ? $this->xml2Array($node) : $node;
+		}
+
+		return $out;
 	}
 
 }
